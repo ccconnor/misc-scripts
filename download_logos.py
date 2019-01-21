@@ -9,7 +9,7 @@ import requests
 import os
 import json
 
-root_path = '/home/bcd-root/dapp_logo/'
+root_path = '/home/bcd-root/token_logo/'
 root_url = 'https://ndi.340wan.com/image/'
 
 
@@ -29,7 +29,7 @@ def download_logos():
     token_names = get_token_names()
     for token in token_names:
         image_name = token + '.png'
-        image_path = root_path + 'eos.png' if image_name == 'eosio.token-eos.png' else root_path + image_name
+        image_path = root_path + image_name
         image_url = root_url + image_name
         response = requests.get(image_url)
         try:
