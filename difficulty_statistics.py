@@ -19,7 +19,7 @@ mainnet = {
 testnet = {
     'rpc_user': 'bitcoinrpc',
     'rpc_password': '123456',
-    'rpc_host': '127.0.0.1',
+    'rpc_host': '192.168.30.106',
     'rpc_port': 17116
 }
 
@@ -50,8 +50,9 @@ def get_block(height):
 def get_lastest_blocks(count):
     chain_info = bitcoinrpc.getblockchaininfo()
     block_height = chain_info['blocks']
+    step = 1
     block_list = []
-    for height in range(block_height - count, block_height + 1):
+    for height in range(block_height - count * step, block_height + 1, step):
         block_list.append(get_block(height))
         print('block %s got' % height)
         time.sleep(0.2)
@@ -159,6 +160,51 @@ def draw_solve_time_pie(block_list):
     plt.show()
 
 
-# set_net_type('testnet')
-# write_blocks_to_csv(get_lastest_blocks(100))
-# draw_solve_time_diagram(read_blocks_from_csv())
+def average_solve_time(block_list):
+    solve_time_list = []
+    for i in range(1, len(block_list)):
+        solve_time_list.append((block_list[i]['time'] - block_list[i-1]['time'])/60)
+    solve_time_array = numpy.array(solve_time_list)
+    print(solve_time_array.mean())
+
+
+def get_difficulty(target):
+    n_shift = (target >> 24) & 0xff
+    d_diff = 0x0000ffff / (target & 0x00ffffff)
+
+    while n_shift < 29:
+        d_diff *= 256.0
+        n_shift = n_shift + 1
+    while n_shift > 29:
+        d_diff /= 256.0
+        n_shift = n_shift - 1
+
+    return d_diff
+
+
+def draw_difficulty_cruve():
+    x = [1090177, 1090321, 1090393, 1090465, 1090537, 1090609, 1090681, 1090753, 1090825]
+    y1 = [486604799, 486604799, 486595646, 486592511, 486592446, 486586626, 486604799, 486598932, 486604799]
+    y2 = [486604799, 486599772, 486596543, 486589027, 486595014, 486575028, 486583155, 486597636, 486603916]
+    plt.plot(x, [get_difficulty(i) for i in y1], marker='o', label='legacy difficulty')
+    plt.plot(x, [get_difficulty(i) for i in y2], marker='o', label='lwma difficulty')
+    plt.xlabel('height')
+    plt.ylabel('difficulty')
+    plt.legend()
+    ax = plt.gca()
+    ax.xaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+    plt.show()
+
+
+def draw_norm_curve(block_list):
+    solve_time_list = []
+    for i in range(1, len(block_list)):
+        solve_time_list.append((block_list[i]['time'] - block_list[i-1]['time'])/60)
+    plt.hist(solve_time_list, bins=50, density=True)
+    plt.show()
+
+
+set_net_type('testnet')
+write_blocks_to_csv(get_lastest_blocks(100))
+# draw_norm_curve(read_blocks_from_csv())
+# draw_difficulty_cruve()
